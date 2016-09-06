@@ -1,5 +1,4 @@
 #!/bin/bash
-WORKDIR="`mktemp -d`"
-docker build -v $WORKDIR:/usr/local/bin/ -t dockerls:latest .
-cp -v $WORKDIR/docker-ls ./bin/
-cp -v $WORKDIR/docker-rm ./bin/
+WORKDIR="$PWD/bin"
+docker build -t dockerls:latest .
+docker run -v $WORKDIR:/mnt dockerls:latest cp -v /usr/local/bin/{docker-rm,docker-ls} /mnt
