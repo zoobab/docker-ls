@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Note: this script will only work with this patched version of docker-ls, as
+# of today, the mayflower's one does not support the env var
+# DOCKER_REGISTRY_URL, see https://github.com/mayflower/docker-ls/pull/8
+
+# Output of this script is a list one per line, useful for shell scripting:
+# 
+# $ registry-ls
+# busybox:one
+# busybox:two
+# busybox:three
+# busybox:four
+# $
+
+if [ -z "$DOCKER_REGISTRY_URL" ]; then
+    echo "Need to set env var DOCKER_REGISTRY_URL"
+    echo "Example: $ export DOCKER_REGISTRY_URL="https://mydocker.registry.com" "
+    exit 1
+fi
+
+check_command() {
+PROGRAM=$1
+command -v $PROGRAM >/dev/null 2>&1 || { echo "ERROR, this script requires $PROGRAM but it's not installed.  Aborting." >&2; exit 1; }
+}
+
+check_command docker-ls
+check_command jq
+check_command grep
+check_command echo
+
+for repo in `docker-ls repositories -table -level 0 -progress-indicator=false | grep -v REPOSITORY`; do
+	TAGS="$(docker-ls tags -progress-indicator=false -json $repo | jq -r '.Tags[]')"
+	for tag in `echo $TAGS`; do
+		echo $repo:$tag
+	done
+done
