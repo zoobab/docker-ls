@@ -30,7 +30,9 @@ check_command grep
 check_command echo
 
 for repo in `docker-ls repositories -table -level 0 -progress-indicator=false | grep -v REPOSITORY`; do
-	TAGS="$(docker-ls tags -progress-indicator=false -json $repo | jq -r '.Tags[]')"
+    # .Tags[]? handles the case where there are 'null' tags, docker registry does not delete empty repos
+    # see http://www.markhneedham.com/blog/2015/10/09/jq-error-cannot-iterate-over-null-null/
+	TAGS="$(docker-ls tags -progress-indicator=false -json $repo | jq -r '.Tags[]?')"
 	for tag in `echo $TAGS`; do
 		echo $repo:$tag
 	done
