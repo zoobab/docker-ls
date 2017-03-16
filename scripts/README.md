@@ -20,6 +20,13 @@ registry as an environement variable:
 $ export DOCKER_REGISTRY_URL="https://mydocker.registry.com"
 ```
 
+If you need a login+password to access your registry, you can also set them:
+
+```
+$ export DOCKER_REGISTRY_LOGIN="mylogin"
+$ export DOCKER_REGISTRY_PWD="mypassword"
+```
+
 Screenshots
 ===========
 
