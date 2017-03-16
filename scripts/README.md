@@ -1,3 +1,6 @@
+About registry-ls
+=================
+
 The author of Docker-ls refused patches with those shell scripts on top of
 docker-ls, so here they are.
 
@@ -6,6 +9,16 @@ They are very useful if you want to do shell scripting on top of them.
 Note: this script will only work with this patched version of docker-ls, as
 of today, the mayflower's one does not support the env var
 DOCKER_REGISTRY_URL, see https://github.com/mayflower/docker-ls/pull/8
+
+Usage
+=====
+
+In order to use those scripts, you need to set first the address of the
+registry as an environement variable:
+
+```
+$ export DOCKER_REGISTRY_URL="https://mydocker.registry.com"
+```
 
 Screenshots
 ===========
