@@ -10,6 +10,15 @@ Note: this script will only work with this patched version of docker-ls, as
 of today, the mayflower's one does not support the env var
 DOCKER_REGISTRY_URL, see https://github.com/mayflower/docker-ls/pull/8
 
+Dependencies
+============
+
+* docker-ls
+* docker-rm
+* jq
+* grep
+* echo
+
 Usage
 =====
 
