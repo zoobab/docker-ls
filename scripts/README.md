@@ -55,3 +55,13 @@ Remove a tag:
 $ registry-rmtag busybox:latest
 Deleting tag busybox:latest ...Tag deleted successfully!
 ```
+
+Combine both to delete all tags:
+
+```
+$ for i in `registry-rmtag`; do registry-rmtag $i; done
+Deleting tag busybox:one ...Tag deleted successfully!
+Deleting tag busybox:two ...Tag deleted successfully!
+Deleting tag busybox:three ...Tag deleted successfully!
+Deleting tag busybox:four ...Tag deleted successfully!
+```
