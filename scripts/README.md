@@ -65,3 +65,10 @@ Deleting tag busybox:two ...Tag deleted successfully!
 Deleting tag busybox:three ...Tag deleted successfully!
 Deleting tag busybox:four ...Tag deleted successfully!
 ```
+
+Check that the registry is empty:
+
+```
+$ registry-ls
+$ 
+```
