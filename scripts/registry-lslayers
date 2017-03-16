@@ -1,0 +1,17 @@
+#!/bin/bash
+
+if [[ "$#" -ne "1" ]]; then
+    echo "Error, no repo:tag supplied"
+    echo "Usage: $0 busybox:latest"
+    exit 1
+fi
+
+REPOTAG="$1"
+
+if [ -n "$DOCKER_REGISTRY_LOGIN" ] && [ -n "$DOCKER_REGISTRY_PWD" ]; then
+    LOGINSTRING="-basic-auth -user $DOCKER_REGISTRY_LOGIN -password $DOCKER_REGISTRY_PWD"
+else
+    LOGINSTRING=""
+fi
+
+docker-ls tag $LOGINSTRING -progress-indicator=false -json $REPOTAG | jq -r '.ContentDigest'

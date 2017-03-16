@@ -1,0 +1,48 @@
+#!/bin/bash
+# This script deletes a repo:tag from a registry, that you need to specify via
+# an ENV variable, like:
+# $ export DOCKER_REGISTRY_URL="https://mydocker.registry.com"
+# 
+# Screenshot:
+# 
+# $ registry-rmtag busybox:latest
+# Deleting tag busybox:latest ...Tag deleted successfully!
+# 
+# You then have to run the "registry garbage cleaner" server side to really
+# remove the orphaned layers on disk.
+
+if [[ "$#" -ne "1" ]]; then
+    echo "Error, missing repo:tag"
+    echo "Usage: $0 busybox:latest"
+    exit 1
+fi
+
+if [ -z "$DOCKER_REGISTRY_URL" ]; then
+    echo "Need to set env var DOCKER_REGISTRY_URL"
+    echo "Example: $ export DOCKER_REGISTRY_URL="https://mydocker.registry.com" "
+    exit 1
+fi
+
+check_command() {
+PROGRAM=$1
+command -v $PROGRAM >/dev/null 2>&1 || { echo "ERROR, this script requires $PROGRAM but it's not installed.  Aborting." >&2; exit 1; }
+}
+
+check_command docker-rm
+check_command registry-lslayers
+check_command cut
+
+if [ -n "$DOCKER_REGISTRY_LOGIN" ] && [ -n "$DOCKER_REGISTRY_PWD" ]; then
+    LOGINSTRING="-basic-auth -user $DOCKER_REGISTRY_LOGIN -password $DOCKER_REGISTRY_PWD"
+else
+    LOGINSTRING=""
+fi
+
+REPOTAG=$1
+REPO=$(echo $REPOTAG | cut -d ":" -f1)
+TAG=$(echo $REPOTAG | cut -d ":" -f2)
+LAYERS=$(registry-lslayers $REPO:$TAG)
+echo -ne "Deleting tag $REPO:$TAG \c"
+for LAYER in $LAYERS; do 
+    docker-rm $LOGINSTRING $REPO:$LAYER
+done
