@@ -15,7 +15,7 @@ Dependencies
 
 * docker-ls
 * docker-rm
-* jq
+* jq ( >= 1.4 )
 * grep
 * echo
 
