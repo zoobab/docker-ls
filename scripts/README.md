@@ -35,6 +35,22 @@ If you need a login+password to access your registry, you can also set them:
 $ export DOCKER_REGISTRY_LOGIN="mylogin"
 $ export DOCKER_REGISTRY_PWD="mypassword"
 ```
+Install
+=======
+
+To install those scripts, just do a `make install`:
+
+```
+$ cd scripts/
+$ make install
+sudo cp -v registry-ls registry-rmtag registry-lslayers ../bin/docker-ls ../bin/docker-rm /usr/local/bin/
+'registry-ls' -> '/usr/local/bin/registry-ls'
+'registry-rmtag' -> '/usr/local/bin/registry-rmtag'
+'registry-lslayers' -> '/usr/local/bin/registry-lslayers'
+'../bin/docker-ls' -> '/usr/local/bin/docker-ls'
+'../bin/docker-rm' -> '/usr/local/bin/docker-rm'
+sudo chmod 755 /usr/local/bin/{registry-ls,registry-rmtag,registry-lslayers,docker-ls,docker-rm}
+```
 
 Screenshots
 ===========
