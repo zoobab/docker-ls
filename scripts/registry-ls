@@ -19,6 +19,13 @@ if [ -z "$DOCKER_REGISTRY_URL" ]; then
     exit 1
 fi
 
+# if the env vars DOCKER_REGISTRY_LOGIN and DOCKER_REGISTRY_PWD are set, use them
+if [ -n "$DOCKER_REGISTRY_LOGIN" ] && [ -n "$DOCKER_REGISTRY_PWD" ]; then
+    LOGINSTRING="-basic-auth -user $DOCKER_REGISTRY_LOGIN -password $DOCKER_REGISTRY_PWD"
+else
+    LOGINSTRING=""
+fi
+
 check_command() {
 PROGRAM=$1
 command -v $PROGRAM >/dev/null 2>&1 || { echo "ERROR, this script requires $PROGRAM but it's not installed.  Aborting." >&2; exit 1; }
@@ -29,10 +36,10 @@ check_command jq
 check_command grep
 check_command echo
 
-for repo in `docker-ls repositories -table -level 0 -progress-indicator=false | grep -v REPOSITORY`; do
+for repo in `docker-ls repositories $LOGINSTRING -table -level 0 -progress-indicator=false | grep -v REPOSITORY`; do
     # .Tags[]? handles the case where there are 'null' tags, docker registry does not delete empty repos
     # see http://www.markhneedham.com/blog/2015/10/09/jq-error-cannot-iterate-over-null-null/
-	TAGS="$(docker-ls tags -progress-indicator=false -json $repo 2>&1 | grep -v 'no such repository' | jq -r '.Tags[]?')"
+	TAGS="$(docker-ls tags $LOGINSTRING -progress-indicator=false -json $repo 2>&1 | grep -v 'no such repository' | jq -r '.Tags[]?')"
 	for tag in `echo $TAGS`; do
 		echo $repo:$tag
 	done
