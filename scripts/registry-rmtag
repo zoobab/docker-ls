@@ -11,6 +11,8 @@
 # You then have to run the "registry garbage cleaner" server side to really
 # remove the orphaned layers on disk.
 
+export PATH=$PWD:$PWD/../bin:$PATH
+
 if [[ "$#" -ne "1" ]]; then
     echo "Error, missing repo:tag"
     echo "Usage: $0 busybox:latest"
