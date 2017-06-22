@@ -88,3 +88,10 @@ Check that the registry is empty:
 $ registry-ls
 $ 
 ```
+
+Get the sha256 hash of the image (useful to see if for ex "myimage:latest" has changed):
+
+```
+$ registry-lslayers busybox:latest
+sha256:8489df91d70f35bddb5648f5931807146285a513a034a627fa1efbf4ba4357e7
+```
