@@ -10,6 +10,41 @@ Note: this script will only work with this patched version of docker-ls, as
 of today, the mayflower's one does not support the env var
 DOCKER_REGISTRY_URL, see https://github.com/mayflower/docker-ls/pull/8
 
+Prebuilt Docker Image
+=====================
+
+If you want to use a prebuilt docker image hosted on the Docker Hub:
+
+```
+$ docker run -it -e DOCKER_REGISTRY_URL=https://myregistry.zoobab.com zoobab/docker-ls registry-ls
+busybox:latest
+busybox:one
+busybox:two
+```
+
+You can also pass login and password:
+
+```
+$ docker run -it -e DOCKER_REGISTRY_URL=https://myregistry2.zoobab.com -e DOCKER_REGISTRY_LOGIN=mylogin -e DOCKER_REGISTRY_PWD=mypwd zoobab/docker-ls registry-ls
+busybox:latest
+busybox:one
+busybox:two
+```
+
+Delete a tag (beware that this only deletes the tag, you have to run a garbage collector registry side to free the disk space):
+
+```
+$ docker run -it -e DOCKER_REGISTRY_URL=https://myregistry2.zoobab.com zoobab/docker-ls registry-rmtag busybox:latest
+Deleting tag busybox:latest ...Tag deleted successfully!
+```
+
+Get the sha256 hash of the image:
+
+```
+$ docker run -it -e DOCKER_REGISTRY_URL=https://myregistry2.zoobab.com zoobab/docker-ls registry-lslayers busybox:latest
+sha256:8489df91d70f35bddb5648f5931807146285a513a034a627fa1efbf4ba4357e7
+```
+
 Dependencies
 ============
 
