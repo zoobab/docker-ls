@@ -1,0 +1,218 @@
+#!/bin/bash
+#set -e          # exit on command errors (MUST handle exit codes properly!)
+#set -u          # exit on undefined vars
+#set -E          # pass trap handlers down to subshells
+#set -o pipefail # capture fail exit codes in piped commands
+#set -x         # execution tracing debug messages
+
+if [ -z "$DOCKER_REGISTRY_URL" ]; then
+    echo "Need to set env var DOCKER_REGISTRY_URL"
+    echo "Example: $ export DOCKER_REGISTRY_URL="https://myregistry.zoobab.com" "
+    exit 1
+fi  
+
+if [ -n "$DOCKER_REGISTRY_LOGIN" ] && [ -n "$DOCKER_REGISTRY_PWD" ]; then
+    LOGINSTRING="-basic-auth -user $DOCKER_REGISTRY_LOGIN -password $DOCKER_REGISTRY_PWD"
+else
+    LOGINSTRING=""
+fi
+
+if [[ "$#" -lt "2" || "$#" -gt "5" ]] ; then
+    echo "Error, please specify number of most recent images (based build time) you want to keep"
+    echo "Usage: $0 [-n 5] [-d] [-l 20]"
+    echo "Example1: Delete everything except the last 5 images:"
+    echo "      $ $0 -n 5"
+    echo "Example2: Build a deletion list, everything except the last 5 images (dryrun):"
+    echo "      $ $0 -n 5 -d"
+    echo "Example3: Build a deletion list, everything except the last 5 images, plus keep the images built during the last 30 days (dryrun):"
+    echo "      $ $0 -n 5 -t 30 -d"
+    echo "Example4: List the last 20 images:"
+    echo "      $ $0 -l 20"
+    exit 1
+fi
+
+testint() {
+	ARG="$(echo $1)"
+	ARG2="$(echo $ARG)"
+	[[ "$ARG2" =~ ^-?[0-9]+$ ]]
+	if [[ "$?" -eq 0 ]]; then
+#		echo "$1 is an integer"
+		true
+	else
+		echo "ERROR, $1 is an NOT integer!!!"
+		exit 1
+	fi
+}
+
+while getopts ":t:n:l:d" opt; do
+  case $opt in
+    t)
+      echo -ne "(timedays=$OPTARG)" >&2
+      XDAYS="$OPTARG"
+      testint "$XDAYS"
+      ;;
+    n)
+      echo -ne "(number=$OPTARG)" >&2
+      NR="$OPTARG"
+      testint "$NR"
+      ;;
+    l)
+      echo -ne "(last=$OPTARG)" >&2
+      LASTNR="$OPTARG"
+      testint "$LASTNR"
+      ;;
+    d)
+      echo -ne "(mode:dryrun)" >&2
+      DRYRUN="1"
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      exit 1
+      ;;
+    :)
+      echo "Please specify the number of latest builds you want to keep (ex: -n 5)" >&2
+      exit 1
+      ;;
+  esac
+done
+
+echo -ne "...[OK]\n"
+
+echo -ne "Listing repositories..."
+WORKDIR="`mktemp -d`"
+REPOS="$WORKDIR/repos"
+REPOS_TXT="$REPOS.txt"
+docker-ls repositories $LOGINSTRING -table -progress-indicator=false | grep -v "REPOSITORY" > $REPOS_TXT
+echo -ne "[OK] ($REPOS_TXT)\n"
+
+echo -ne "Listing tags..."
+for REPO in `cat $REPOS_TXT`; do
+    TAGLIST="$WORKDIR/`echo ${REPO} | sed -e 's/\//\++/g' `.tag"
+    $(docker-ls tags $LOGINSTRING -progress-indicator=false -json $REPO | jq -r '.Tags[]?' > $TAGLIST ) &
+done
+wait
+echo -ne "[OK]\n"
+
+echo -ne "Listing repo:tags..."
+REPOTAG="$WORKDIR/repotag.txt"
+for REPO in `cat $REPOS_TXT`; do
+    TAGLIST="$WORKDIR/`echo ${REPO} | sed -e 's/\//\++/g' `.tag"
+    for TAG in `cat $TAGLIST`; do
+	true
+	echo $REPO:$TAG >> $REPOTAG
+    done
+done
+echo -ne "[OK] ($REPOTAG)\n"
+
+echo -ne "Getting times..."
+for REPO in `cat $REPOS_TXT`; do
+    REPONAME="`echo ${REPO} | sed -e 's/\//\++/g' `"
+    TAGLIST="$WORKDIR/${REPONAME}.tag"
+    for TAG in `cat $TAGLIST`; do
+#	echo "Getting time for $REPONAME:$TAG ..."
+        $(curl -s $DOCKER_REGISTRY_URL/v2/$REPO/manifests/$TAG | jq -r '.history[] | .v1Compatibility ' | jq -r '.created' > $WORKDIR/$REPONAME:$TAG.times) &
+	sleep 0.01
+    done
+done
+wait
+echo -ne "[OK]\n"
+
+echo -ne "Converting times..."
+CURDIR="`pwd`"
+pushd $WORKDIR >> /dev/null
+for i in `ls -1 *.times`; do
+	out="`echo $i | sed -e 's/\.times//g'`"
+    for line in `cat $i`; do
+        date -d "$line" +'%s' >> $out.timelist
+	done
+    sort $out.timelist | tail -f -n1 > $out.timestamp
+done
+echo -ne "[OK]\n"
+
+if [ -n "$NR" ]; then
+	echo -ne "Building deletion list..."
+	LISTNAME="$WORKDIR/list.todelete"
+	for REPO in `cat $REPOS_TXT`; do
+        REPO="`echo $REPO | sed -e 's/\//++/g'`"
+    	LIST=$(ls -1 $REPO:*.timestamp)
+    	for i in $REPO:*.timestamp; do TIME=$(cat $i); cp $i `echo $i | sed -e "s/^/$TIME~/g" -e "s/\.timestamp/\.renamed/g"`; done
+    	ls -1 *~$REPO:*.renamed | sort -r | tail -n +${NR} | sed -e 's/\.renamed$//g' | cut -d '~' -f2 | tr -s \n >> $LISTNAME
+	done
+	sed -i "s/++/\//g" $LISTNAME
+
+	echo -ne "[OK] ($LISTNAME) \n"
+	echo "DELETION_LIST=$LISTNAME" > /tmp/dellist.sh
+
+	echo -ne "Building deletion list with time..."
+	LISTNAME_EPOCH_HUMAN="$WORKDIR/list_epoch_human.todelete"
+	for i in `cat $LISTNAME`; do
+    	REPOTAG=$(echo $i | sed -e 's/\//++/g')
+    	EPOCH=$(cat $REPOTAG.timestamp)
+    	HUMAN=$(date -d @${EPOCH} +%Y%m%d_%H%M%S)
+    	echo "$i;$EPOCH;$HUMAN" >> $LISTNAME_EPOCH_HUMAN
+	done
+
+	echo -ne "[OK] ($LISTNAME_EPOCH_HUMAN) \n"
+	echo "DELETION_LIST_EPOCH_HUMAN=$LISTNAME_EPOCH_HUMAN" >> /tmp/dellist.sh
+
+	if [ -n "$XDAYS" ]; then
+		echo -ne "Removing images younger than $XDAYS days...\n"
+        LISTNAME_EPOCH_HUMAN_XDAYS="$WORKDIR/list_epoch_human_xdays.todelete"
+        cp $LISTNAME_EPOCH_HUMAN $LISTNAME_EPOCH_HUMAN_XDAYS
+        TIME_XDAYS=$(date +%s --date="$XDAYS days ago")
+        IFS=$'\n'
+        for i in `cat $LISTNAME_EPOCH_HUMAN_XDAYS`; do
+            REPOTAG=$(echo $i | cut -d ";" -f1)
+            EPOCH=$(echo $i | cut -d ";" -f2)
+            if [[ "$EPOCH" -gt "$TIME_XDAYS" ]]; then
+                echo -ne "|- Removing $REPOTAG from the list..."
+                grep -v "$EPOCH" $LISTNAME_EPOCH_HUMAN_XDAYS > temp && mv temp $LISTNAME_EPOCH_HUMAN_XDAYS
+                echo -ne "[OK]\n"
+            fi
+        done
+        
+        echo "LISTNAME_EPOCH_HUMAN_XDAYS=$LISTNAME_EPOCH_HUMAN_XDAYS" >> /tmp/dellist.sh
+
+        LISTNAME_XDAYS="$WORKDIR/list_xdays.todelete"
+        awk -F ";" '{print $1}' $LISTNAME_EPOCH_HUMAN_XDAYS > $LISTNAME_XDAYS
+        echo "LISTNAME_XDAYS=$LISTNAME_XDAYS" >> /tmp/dellist.sh
+        
+        echo -ne "[OK] ($LISTNAME_EPOCH_HUMAN_XDAYS and $LISTNAME_XDAYS)\n"
+	fi
+
+fi
+
+if [ -n "$LASTNR" ]; then
+    echo -ne "Listing last $LASTNR images..."
+    for REPO in `cat $REPOS_TXT`; do
+        REPO="`echo $REPO | sed -e 's/\//++/g'`"
+        LIST=$(ls -1 $REPO:*.timestamp)
+        for i in $REPO:*.timestamp; do TIME=$(cat $i); cp $i `echo $i | sed -e "s/^/$TIME~/g" -e "s/\.timestamp/\.last/g"`; done
+        ls -1 *~$REPO:*.last >> all.last
+    done
+    
+    LASTNRLIST="$WORKDIR/lastnrtmp.txt"
+    LASTNRLIST2="$WORKDIR/lastnr.txt"
+    sort -r all.last | head -n $LASTNR > $LASTNRLIST
+    sed -i "s/++/\//g" $LASTNRLIST
+    sed -i "s/\.last//g" $LASTNRLIST
+
+    for i in `cat $LASTNRLIST`; do
+	    EPOCH="`echo $i | cut -d '~' -f1`"
+	    HUMANTIME="`date -d @${EPOCH} +%Y%m%d_%H%M%S`"
+    	REPOTAG="`echo $i | cut -d '~' -f2`"
+    	echo "$REPOTAG;$EPOCH;$HUMANTIME" >> $LASTNRLIST2
+    done
+
+    echo -ne "[OK] ($LASTNRLIST2)\n"
+fi
+
+if [ -n "$NR" ]; then
+  if [[ "$DRYRUN" -ne "1" ]]; then
+  echo -ne "Deleting images..."
+  for i in `cat final.todelete`;
+ 	do registry-rmtag $i
+  done
+  echo -ne "Deleting images...[OK]\n"
+  fi
+fi
