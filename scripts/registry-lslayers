@@ -1,12 +1,18 @@
 #!/bin/bash
 
-export PATH=$PWD/../bin:$PATH
-
 if [[ "$#" -ne "1" ]]; then
     echo "Error, no repo:tag supplied"
     echo "Usage: $0 busybox:latest"
     exit 1
 fi
+
+check_command() {
+PROGRAM=$1
+command -v $PROGRAM >/dev/null 2>&1 || { echo "ERROR, this script requires $PROGRAM but it's not installed.  Aborting." >&2; exit 1; }
+}
+
+check_command docker-ls
+check_command jq
 
 REPOTAG="$1"
 
