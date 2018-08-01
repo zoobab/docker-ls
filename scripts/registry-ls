@@ -13,8 +13,6 @@
 # busybox:four
 # $
 
-export PATH=$PWD/../bin:$PATH
-
 if [ -z "$DOCKER_REGISTRY_URL" ]; then
     echo "Need to set env var DOCKER_REGISTRY_URL"
     echo "Example: $ export DOCKER_REGISTRY_URL="https://mydocker.registry.com" "
