@@ -36,7 +36,7 @@ check_command jq
 check_command grep
 check_command echo
 
-for repo in `docker-ls repositories $LOGINSTRING -table -level 0 -progress-indicator=false | grep -v REPOSITORY`; do
+for repo in $(docker-ls repositories $LOGINSTRING -table -level 0 -progress-indicator=false | grep -v REPOSITORY); do
     # .Tags[]? handles the case where there are 'null' tags, docker registry does not delete empty repos
     # see http://www.markhneedham.com/blog/2015/10/09/jq-error-cannot-iterate-over-null-null/
 	TAGS="$(docker-ls tags $LOGINSTRING -progress-indicator=false -json $repo 2>&1 | grep -v 'no such repository' | jq -r '.Tags[]?')"
